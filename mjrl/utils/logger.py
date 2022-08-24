@@ -1,17 +1,25 @@
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
 import numpy as np
 import scipy
 import pickle
 import os
 import csv
+import wandb
 
 class DataLog:
 
     def __init__(self):
         self.log = {}
         self.max_len = 0
+
+    def init_wb(self, cfg):
+        print(cfg.keys())
+        wandb.init(project='robopen-RL', entity="jasonyma_fair", name=cfg.job_name)
+        fullcfg = {**cfg}
+        wandb.config.update(fullcfg)
 
     def log_kv(self, key, value):
         # logs the (key, value) pair
@@ -23,6 +31,10 @@ class DataLog:
         self.log[key].append(value)
         if len(self.log[key]) > self.max_len:
             self.max_len = self.max_len + 1
+
+    def save_wb(self, step):
+        logs = self.get_current_log()
+        wandb.log(logs, step = step)
 
     def save_log(self, save_path):
         # TODO: Validate all lengths are the same.

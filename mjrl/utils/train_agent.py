@@ -84,7 +84,7 @@ def train_agent(job_name, agent,
     best_perf = -1e8
     train_curve = best_perf*np.ones(niter)
     mean_pol_perf = 0.0
-    e = GymEnv(agent.env.env_id)
+    # env = copy.deepcopy(agent.env)
 
     # Load from any existing checkpoint, policy, statistics, etc.
     # Why no checkpointing.. :(
@@ -103,30 +103,34 @@ def train_agent(job_name, agent,
             best_perf = train_curve[i-1]
 
         N = num_traj if sample_mode == 'trajectories' else num_samples
-        args = dict(N=N, sample_mode=sample_mode, gamma=gamma, gae_lambda=gae_lambda, num_cpu=num_cpu)
+        args = dict(N=N, env=agent.env, sample_mode=sample_mode, gamma=gamma, gae_lambda=gae_lambda, num_cpu=num_cpu)
         stats = agent.train_step(**args)
         train_curve[i] = stats[0]
 
         if evaluation_rollouts is not None and evaluation_rollouts > 0:
             print("Performing evaluation rollouts ........")
             eval_paths = sample_paths(num_traj=evaluation_rollouts, policy=agent.policy, num_cpu=num_cpu,
-                                      env=e.env_id, eval_mode=True, base_seed=seed)
+                                      env=agent.env, eval_mode=True, base_seed=seed)
             mean_pol_perf = np.mean([np.sum(path['rewards']) for path in eval_paths])
             if agent.save_logs:
                 agent.logger.log_kv('eval_score', mean_pol_perf)
                 try:
-                    eval_success = e.env.env.evaluate_success(eval_paths)
+                    eval_success = env.env.env.evaluate_success(eval_paths)
                     agent.logger.log_kv('eval_success', eval_success)
                 except:
                     pass
+        if agent.save_logs:
+            agent.logger.save_wb(step=len(agent.logger.log[plot_keys[0]]))
 
         if i % save_freq == 0 and i > 0:
             if agent.save_logs:
                 agent.logger.save_log('logs/')
                 make_train_plots(log=agent.logger.log, keys=plot_keys, save_loc='logs/')
+            paths_file = 'paths_%i.pickle' % i
             policy_file = 'policy_%i.pickle' % i
             baseline_file = 'baseline_%i.pickle' % i
             pickle.dump(agent.policy, open('iterations/' + policy_file, 'wb'))
+            pickle.dump(agent.paths, open('iterations/' + paths_file, 'wb'))
             pickle.dump(agent.baseline, open('iterations/' + baseline_file, 'wb'))
             pickle.dump(best_policy, open('iterations/best_policy.pickle', 'wb'))
             # pickle.dump(agent.global_status, open('iterations/global_status.pickle', 'wb'))
@@ -151,5 +155,6 @@ def train_agent(job_name, agent,
     pickle.dump(best_policy, open('iterations/best_policy.pickle', 'wb'))
     if agent.save_logs:
         agent.logger.save_log('logs/')
+        agent.logger.save_wb(step=agent.steps)
         make_train_plots(log=agent.logger.log, keys=plot_keys, save_loc='logs/')
     os.chdir(previous_dir)

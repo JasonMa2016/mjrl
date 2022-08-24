@@ -1,5 +1,7 @@
 import logging
 import numpy as np
+from tqdm import tqdm 
+
 from mjrl.utils.gym_env import GymEnv
 from mjrl.utils import tensor_utils
 logging.disable(logging.CRITICAL)
@@ -49,7 +51,7 @@ def do_rollout(
     horizon = min(horizon, env.horizon)
     paths = []
 
-    for ep in range(num_traj):
+    for ep in tqdm(range(num_traj)):
         # seeding
         if base_seed is not None:
             seed = base_seed + ep
@@ -60,13 +62,20 @@ def do_rollout(
         actions=[]
         rewards=[]
         agent_infos = []
-        env_infos = []
+        env_infos = [] 
 
         o = env.reset()
+        
         done = False
         t = 0
-
+        
+        if env.env.goal_embedding is not None:
+            goal_dim = env.env.goal_embedding.shape[0]
+            initial_reward = -np.linalg.norm(o[-goal_dim:]-env.env.goal_embedding)
+            rewards.append(initial_reward)
+        
         while t < horizon and done != True:
+            # print(ep, t)
             a, agent_info = policy.get_action(o)
             if eval_mode:
                 a = agent_info['evaluation']
@@ -76,12 +85,22 @@ def do_rollout(
             env_info = env_info_step if env_info_base == {} else env_info_base
             observations.append(o)
             actions.append(a)
+            
+            if env.env.goal_embedding is not None:
+                r = -np.linalg.norm(next_o[-goal_dim:]-env.env.goal_embedding)
+
             rewards.append(r)
             agent_infos.append(agent_info)
             env_infos.append(env_info)
             o = next_o
             t += 1
 
+        if env.env.goal_embedding is not None:
+            # print("Use difference as reward!")
+            rewards = np.array(rewards)
+            rewards = rewards[1:] - rewards[:-1]
+
+        assert(len(rewards) == horizon)
         path = dict(
             observations=np.array(observations),
             actions=np.array(actions),
@@ -92,7 +111,7 @@ def do_rollout(
         )
         paths.append(path)
 
-    del(env)
+    # del(env)
     return paths
 
 

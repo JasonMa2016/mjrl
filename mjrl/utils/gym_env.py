@@ -14,13 +14,20 @@ class EnvSpec(object):
 
 
 class GymEnv(object):
-    def __init__(self, env, env_kwargs=None,
+    def __init__(self, env, source="sim", env_kwargs=None,
                  obs_mask=None, act_repeat=1, 
                  *args, **kwargs):
     
         # get the correct env behavior
         if type(env) == str:
-            env = gym.make(env)
+            if  source == "sim":
+                env = gym.make(env)
+                # print("Creating Real Environment!")
+            elif source == "real":
+                env = gym.make(env, **(eval("{'is_hardware':True}")))
+            else:
+                raise NotImplementedError
+
         elif isinstance(env, gym.Env):
             env = env
         elif callable(env):

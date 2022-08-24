@@ -69,7 +69,7 @@ class BatchREINFORCE:
                    ):
 
         # Clean up input arguments
-        env = self.env.env_id if env is None else env
+        # env = self.env.env_id if env is None else env
         if sample_mode != 'trajectories' and sample_mode != 'samples':
             print("sample_mode in NPG must be either 'trajectories' or 'samples'")
             quit()
@@ -88,6 +88,7 @@ class BatchREINFORCE:
         if self.save_logs:
             self.logger.log_kv('time_sampling', timer.time() - ts)
 
+        self.paths = paths
         self.seed = self.seed + N if self.seed is not None else self.seed
 
         # compute returns
